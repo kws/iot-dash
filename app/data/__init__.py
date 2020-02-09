@@ -2,6 +2,9 @@ import pandas as pd
 import os
 from glob import glob
 import plotly.figure_factory as ff
+from datetime import datetime, timedelta
+
+__DEFAULT_DAYS = 7
 
 _DIR = os.getenv("IOT_DIR", os.path.abspath("../samples"))
 _columns = [
@@ -25,9 +28,19 @@ def read_data():
     return df
 
 
-def value_timeseries(type, df=None, ylabel=''):
+def get_data(df=None, days=None):
     if df is None:
         df = read_data()
+
+    if days is None:
+        days = __DEFAULT_DAYS
+
+    df = df[df.date >= datetime.now() - timedelta(days=days)]
+    return df
+
+
+def value_timeseries(type, df=None, days=None, ylabel=''):
+    df = get_data(df=df, days=days)
 
     events = df[df.type == type]
     traces=[]
@@ -67,26 +80,19 @@ def _gantt_grouper(df):
     df.fillna(method='bfill', inplace=True)
     df = df[df.start < df.end]
     df = df[["name", "start", "end"]].drop_duplicates()
+    df.columns =  ["Task","Start",'Finish']
     return df
 
 
-def value_gantt(type, df=None):
-    if df is None:
-        df = read_data()
+def value_gantt(type, days=None, df=None):
+    df = get_data(df=df, days=days)
 
     df = df[df.type == type].groupby("id").apply(_gantt_grouper).reset_index()
     del df["level_1"]
 
-    df = df.sort_values(by=["start","name"])
+    df = df.sort_values(by=["Start","Task"])
 
-    events=[]
-    for ix, row in df.iterrows():
-        events.append(dict(
-            Task=row["name"],
-            Start=row.start,
-            Finish=row.end,
-        ))
-
-    fig = ff.create_gantt(events, group_tasks=True, index_col='Task')
+    fig = ff.create_gantt(df, group_tasks=True, index_col='Task')
+    fig.layout.xaxis.range = (datetime.now() - timedelta(days=days), datetime.now())
     return fig
 

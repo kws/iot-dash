@@ -17,17 +17,29 @@ def serve_layout():
     return html.Div(children=[
         html.H1(children='IOT Data'),
 
+        dcc.Dropdown(
+            id='dropdown',
+            options=[
+                dict(label='1h', value=1/24),
+                dict(label='12h', value=12/24),
+                dict(label='1d', value=1),
+                dict(label='7d', value=7),
+                dict(label='30d', value=30),
+            ],
+            value=1/24
+        ),
+
         html.H3(children='Temperature'),
 
-        dcc.Graph(id='temp-graph', figure=data.value_timeseries('temperature', df=df, ylabel='Temperature (C)')),
+        dcc.Graph(id='temp-graph'),
 
         html.H3(children='Light Level'),
 
-        dcc.Graph(id='light-graph', figure=data.value_timeseries('lightlevel', df=df, ylabel='Level')),
+        dcc.Graph(id='light-graph'),
 
         html.H3(children='Presence'),
 
-        dcc.Graph(id='presence-graph', figure=data.value_gantt('presence', df=df)),
+        dcc.Graph(id='presence-graph'),
 
         dcc.Interval(
             id='interval-component',
@@ -41,21 +53,21 @@ app.layout = serve_layout
 
 
 @app.callback(Output('temp-graph', 'figure'),
-              [Input('interval-component', 'n_intervals')])
-def update_temperature(n):
-    return data.value_timeseries('temperature', ylabel='Temperature (C)')
+              [Input('interval-component', 'n_intervals'), Input('dropdown', 'value')])
+def update_temperature(n, days):
+    return data.value_timeseries('temperature', days=days, ylabel='Temperature (C)')
 
 
 @app.callback(Output('light-graph', 'figure'),
-              [Input('interval-component', 'n_intervals')])
-def update_temperature(n):
-    return data.value_timeseries('lightlevel', ylabel='Level')
+              [Input('interval-component', 'n_intervals'), Input('dropdown', 'value')])
+def update_temperature(n, days):
+    return data.value_timeseries('lightlevel', days=days,  ylabel='Level')
 
 
 @app.callback(Output('presence-graph', 'figure'),
-              [Input('interval-component', 'n_intervals')])
-def update_temperature(n):
-    return data.value_gantt('presence')
+              [Input('interval-component', 'n_intervals'), Input('dropdown', 'value')])
+def update_temperature(n, days):
+    return data.value_gantt('presence', days=days)
 
 
 if __name__ == '__main__':
