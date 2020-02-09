@@ -1,0 +1,6 @@
+dash~=1.9.0  # The core dash backend
+dash-html-components~=1.0.0  # HTML components
+dash-core-components~=1.8.0  # Supercharged components
+dash-table~=4.6.0  # Interactive DataTable component (new!)
+pandas~=1.0.0
+gunicorn~=20.0.0
