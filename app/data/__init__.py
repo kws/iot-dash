@@ -3,6 +3,7 @@ import os
 from glob import glob
 import plotly.figure_factory as ff
 from datetime import datetime, timedelta
+from cachetools import cached, LRUCache
 
 __DEFAULT_DAYS = 7
 
@@ -19,28 +20,33 @@ _columns = [
 ]
 
 
-def read_data():
+@cached(cache=LRUCache(maxsize=3))
+def read_data(days, cache_key):
     files = glob(os.path.join(_DIR, "iot-log-*.csv*"))
+    if days is not None:
+        start = datetime.now() - timedelta(days=days)
+        days_str = f'iot-log-{start:%Y-%m-%d}'
+        files = [f for f in files if os.path.basename(f) >= days_str]
+
     dataframes = [pd.read_csv(f, names=_columns, parse_dates=["date"]) for f in files]
     df = pd.concat(dataframes)
     df = df.drop_duplicates()
+    df = df[df.date >= datetime.now() - timedelta(days=days)]
     df = df.sort_values("date")
     return df
 
 
-def get_data(df=None, days=None):
-    if df is None:
-        df = read_data()
-
+def get_data(days=None, cache_key=None):
     if days is None:
         days = __DEFAULT_DAYS
-
-    df = df[df.date >= datetime.now() - timedelta(days=days)]
+    if cache_key is None:
+        cache_key = datetime.now()
+    df = read_data(days=days, cache_key=cache_key)
     return df
 
 
-def value_timeseries(type, df=None, days=None, ylabel=''):
-    df = get_data(df=df, days=days)
+def value_timeseries(type, days=None, ylabel='', cache_key=None):
+    df = get_data(days=days, cache_key=cache_key)
 
     events = df[df.type == type]
     traces=[]
@@ -84,8 +90,8 @@ def _gantt_grouper(df):
     return df
 
 
-def value_gantt(type, days=None, df=None):
-    df = get_data(df=df, days=days)
+def value_gantt(type, days=None, cache_key=None):
+    df = get_data(days=days, cache_key=cache_key)
 
     df = df[df.type == type].groupby("id").apply(_gantt_grouper).reset_index()
     del df["level_1"]

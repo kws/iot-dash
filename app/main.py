@@ -3,7 +3,6 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Output, Input
-
 from app import data
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -13,7 +12,6 @@ server = app.server
 
 
 def serve_layout():
-    df = data.read_data()
     return html.Div(children=[
         html.H1(children='IOT Data'),
 
@@ -55,19 +53,19 @@ app.layout = serve_layout
 @app.callback(Output('temp-graph', 'figure'),
               [Input('interval-component', 'n_intervals'), Input('dropdown', 'value')])
 def update_temperature(n, days):
-    return data.value_timeseries('temperature', days=days, ylabel='Temperature (C)')
+    return data.value_timeseries('temperature', days=days, ylabel='Temperature (C)', cache_key=n)
 
 
 @app.callback(Output('light-graph', 'figure'),
               [Input('interval-component', 'n_intervals'), Input('dropdown', 'value')])
 def update_temperature(n, days):
-    return data.value_timeseries('lightlevel', days=days,  ylabel='Level')
+    return data.value_timeseries('lightlevel', days=days,  ylabel='Level', cache_key=n)
 
 
 @app.callback(Output('presence-graph', 'figure'),
               [Input('interval-component', 'n_intervals'), Input('dropdown', 'value')])
 def update_temperature(n, days):
-    return data.value_gantt('presence', days=days)
+    return data.value_gantt('presence', days=days, cache_key=n)
 
 
 if __name__ == '__main__':
