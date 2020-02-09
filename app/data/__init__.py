@@ -23,3 +23,37 @@ def read_data():
     df = df.sort_values("date")
     return df
 
+
+def value_timeseries(type, df=None, ylabel=''):
+    if df is None:
+        df = read_data()
+
+    events = df[df.type == type]
+    traces=[]
+
+    for name in sorted(events.name.unique()):
+        series = events[events.name == name]
+        traces.append(dict(
+            x=series.date,
+            y=series.value,
+            text=series.value,
+            mode='line',
+            opacity=0.7,
+            marker={
+                'size': 15,
+                'line': {'width': 0.5, 'color': 'white'}
+            },
+            name=name
+        ))
+
+    return {
+        'data': traces,
+        'layout': dict(
+            xaxis={'title': 'Date'},
+            yaxis={'title': ylabel},
+            margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
+            legend={'x': 0, 'y': 1},
+            hovermode='closest',
+            transition={'duration': 500},
+        )
+    }

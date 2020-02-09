@@ -2,6 +2,7 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Output, Input
 
 from app import data
 
@@ -10,57 +11,42 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 
-df = data.read_data()
 
+def serve_layout():
+    df = data.read_data()
+    return html.Div(children=[
+        html.H1(children='IOT Data'),
 
-def update_figure(type):
-    events = df[df.type == type]
-    traces=[]
+        html.H3(children='Temperature'),
 
-    for name in sorted(events.name.unique()):
-        series = events[events.name == name]
-        traces.append(dict(
-            x=series.date,
-            y=series.value,
-            text=series.value,
-            mode='line',
-            opacity=0.7,
-            marker={
-                'size': 15,
-                'line': {'width': 0.5, 'color': 'white'}
-            },
-            name=name
-        ))
+        dcc.Graph(id='temp-graph', figure=data.value_timeseries('temperature', df=df, ylabel='Temperature (C)')),
 
-    return {
-        'data': traces,
-        'layout': dict(
-            xaxis={'title': 'Date'},
-            yaxis={'title': 'Temperature (C)'},
-            margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
-            legend={'x': 0, 'y': 1},
-            hovermode='closest',
-            transition={'duration': 500},
+        html.H3(children='Light Level'),
+
+        dcc.Graph(id='light-graph', figure=data.value_timeseries('lightlevel', df=df, ylabel='Level')),
+
+        dcc.Interval(
+            id='interval-component',
+            interval=15 * 1000,  # in milliseconds
+            n_intervals=0
         )
-    }
+    ])
 
 
-app.layout = html.Div(children=[
-    html.H1(children='IOT Data'),
+app.layout = serve_layout
 
-    html.H3(children='''
-        Temperature
-    '''),
 
-    dcc.Graph(id='temp-graph', figure=update_figure('temperature')),
+@app.callback(Output('temp-graph', 'figure'),
+              [Input('interval-component', 'n_intervals')])
+def update_temperature(n):
+    return data.value_timeseries('temperature', ylabel='Temperature (C)')
 
-    html.H3(children='''
-    Light Level
-'''),
 
-    dcc.Graph(id='light-graph', figure=update_figure('lightlevel'))
+@app.callback(Output('light-graph', 'figure'),
+              [Input('interval-component', 'n_intervals')])
+def update_temperature(n):
+    return data.value_timeseries('lightlevel', ylabel='Level')
 
-])
 
 if __name__ == '__main__':
     app.run_server(debug=True)
