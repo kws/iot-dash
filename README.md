@@ -1,7 +1,7 @@
 # IoT Dashboard
 
 This is a simple companion to the [Hue Controller](https://github.com/kws/hue-controller) 
-that displays sensor data captured using the [CSVLooger](https://github.com/kws/hue-controller/blob/master/src/helpers/csvlogger.js). 
+that displays sensor data captured using the [CSVLogger](https://github.com/kws/hue-controller/blob/master/src/helpers/csvlogger.js). 
 
 Set the environment variable `IOT_DIR` to point at the location of your CSV logfiles. 
 
