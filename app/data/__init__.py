@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 from glob import glob
+import plotly.figure_factory as ff
 
 _DIR = os.getenv("IOT_DIR", os.path.abspath("../samples"))
 _columns = [
@@ -57,3 +58,35 @@ def value_timeseries(type, df=None, ylabel=''):
             transition={'duration': 500},
         )
     }
+
+
+def _gantt_grouper(df):
+    df = df.sort_values("date").reset_index()
+    df.loc[df.value == 'true', 'start'] = df.date
+    df.loc[df.value == 'false', 'end'] = df.date
+    df.fillna(method='bfill', inplace=True)
+    df = df[df.start < df.end]
+    df = df[["name", "start", "end"]].drop_duplicates()
+    return df
+
+
+def value_gantt(type, df=None):
+    if df is None:
+        df = read_data()
+
+    df = df[df.type == type].groupby("id").apply(_gantt_grouper).reset_index()
+    del df["level_1"]
+
+    df = df.sort_values(by=["start","name"])
+
+    events=[]
+    for ix, row in df.iterrows():
+        events.append(dict(
+            Task=row["name"],
+            Start=row.start,
+            Finish=row.end,
+        ))
+
+    fig = ff.create_gantt(events, group_tasks=True, index_col='Task')
+    return fig
+

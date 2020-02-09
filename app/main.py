@@ -25,6 +25,10 @@ def serve_layout():
 
         dcc.Graph(id='light-graph', figure=data.value_timeseries('lightlevel', df=df, ylabel='Level')),
 
+        html.H3(children='Presence'),
+
+        dcc.Graph(id='presence-graph', figure=data.value_gantt('presence', df=df)),
+
         dcc.Interval(
             id='interval-component',
             interval=15 * 1000,  # in milliseconds
@@ -46,6 +50,12 @@ def update_temperature(n):
               [Input('interval-component', 'n_intervals')])
 def update_temperature(n):
     return data.value_timeseries('lightlevel', ylabel='Level')
+
+
+@app.callback(Output('presence-graph', 'figure'),
+              [Input('interval-component', 'n_intervals')])
+def update_temperature(n):
+    return data.value_gantt('presence')
 
 
 if __name__ == '__main__':
