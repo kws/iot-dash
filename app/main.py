@@ -31,7 +31,7 @@ def serve_layout():
 
         dcc.Interval(
             id='interval-component',
-            interval=15 * 1000,  # in milliseconds
+            interval=60 * 1000,  # in milliseconds
             n_intervals=0
         )
     ])
