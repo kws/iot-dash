@@ -1,54 +1,31 @@
-import pandas as pd
 import os
-from glob import glob
-import plotly.figure_factory as ff
+import sqlite3
 from datetime import datetime, timedelta
-from cachetools import cached, LRUCache
+import pandas as pd
+import plotly.figure_factory as ff
 
 __DEFAULT_DAYS = 7
 
-_DIR = os.getenv("IOT_DIR", os.path.abspath("../samples"))
-_columns = [
-    "date",
-    "id",
-    "name",
-    "type",
-    "value",
-    "battery",
-    "dark",
-    "daylight"
-]
+_DB_URL = os.getenv("IOT_DB_URL")
 
 
-@cached(cache=LRUCache(maxsize=3))
-def read_data(days, cache_key):
-    files = glob(os.path.join(_DIR, "iot-log-*.csv*"))
-    if days is not None:
-        start = datetime.now() - timedelta(days=days)
-        days_str = f'iot-log-{start:%Y-%m-%d}'
-        files = [f for f in files if os.path.basename(f) >= days_str]
-
-    dataframes = [pd.read_csv(f, names=_columns, parse_dates=["date"]) for f in files]
-    df = pd.concat(dataframes)
-    df = df.drop_duplicates()
-    df = df[df.date >= datetime.now() - timedelta(days=days)]
-    df = df.sort_values("date")
-    return df
-
-
-def get_data(days=None, cache_key=None):
+def get_data(type, days=None):
     if days is None:
         days = __DEFAULT_DAYS
-    if cache_key is None:
-        cache_key = datetime.now()
-    df = read_data(days=days, cache_key=cache_key)
+
+    start = datetime.now() - timedelta(days=days)
+
+    with sqlite3.connect(_DB_URL) as conn:
+        df = pd.read_sql_query(
+            "select date,id,name,type,value from log where date>=? and type=? order by date",
+            conn, params=[start, type])
+
     return df
 
 
-def value_timeseries(type, days=None, ylabel='', cache_key=None):
-    df = get_data(days=days, cache_key=cache_key)
+def value_timeseries(type, days=None, ylabel=''):
+    events = get_data(type, days=days)
 
-    events = df[df.type == type]
     traces=[]
 
     for name in sorted(events.name.unique()):
@@ -90,10 +67,10 @@ def _gantt_grouper(df):
     return df
 
 
-def value_gantt(type, days=None, cache_key=None):
-    df = get_data(days=days, cache_key=cache_key)
+def value_gantt(type, days=None):
+    df = get_data(type, days=days)
 
-    df = df[df.type == type].groupby("id").apply(_gantt_grouper).reset_index()
+    df = df.groupby("id").apply(_gantt_grouper).reset_index()
     del df["level_1"]
 
     df = df.sort_values(by=["Start","Task"])
