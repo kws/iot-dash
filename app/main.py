@@ -2,12 +2,12 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_bootstrap_components as dbc
+
 from dash.dependencies import Output, Input
 from app import data
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 
 
@@ -15,25 +15,39 @@ def serve_layout():
     return html.Div(children=[
         html.H1(children='IOT Data'),
 
-        dcc.Dropdown(
-            id='dropdown',
-            options=[
-                dict(label='1h', value=1/24),
-                dict(label='12h', value=12/24),
-                dict(label='1d', value=1),
-                dict(label='7d', value=7),
-                dict(label='30d', value=30),
-            ],
-            value=1/24
+        dbc.Row(
+            [
+                dbc.Col(html.P([
+                    dcc.Dropdown(
+                        id='dropdown',
+                        options=[
+                            dict(label='1h', value=1 / 24),
+                            dict(label='12h', value=12 / 24),
+                            dict(label='1d', value=1),
+                            dict(label='7d', value=7),
+                            dict(label='30d', value=30),
+                        ],
+                        value=1 / 24
+                    ),
+                ]), xl=1, lg=2, sm=4),
+            ]),
+
+        html.Hr(),
+
+        dbc.Row(
+            [
+                dbc.Col(html.P([
+                    html.H3(children='Temperature'),
+                    dcc.Graph(id='temp-graph'),
+                ]), md=6, sm=12),
+                dbc.Col(html.P([
+                    html.H3(children='Light Level'),
+                    dcc.Graph(id='light-graph'),
+                ]), md=6, sm=12),
+            ]
         ),
 
-        html.H3(children='Temperature'),
-
-        dcc.Graph(id='temp-graph'),
-
-        html.H3(children='Light Level'),
-
-        dcc.Graph(id='light-graph'),
+        html.Hr(),
 
         html.H3(children='Presence'),
 
@@ -69,4 +83,4 @@ def update_temperature(n, days):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, host="0.0.0.0")
