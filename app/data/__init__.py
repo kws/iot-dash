@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from datetime import datetime, timedelta
-from pytz import timezone
+from pytz import timezone, tzinfo, UTC
 import pandas as pd
 import numpy as np
 import plotly.figure_factory as ff
@@ -76,7 +76,9 @@ def value_timeseries(type, days=None, ylabel=''):
     }
 
 
-def _gantt_grouper(start_date_tz, days):
+def value_gantt(type, days=None):
+    df = get_data(type, days=days)
+
     if days <= 1/12:
         time_window = 1
     elif days <= 1:
@@ -86,71 +88,48 @@ def _gantt_grouper(start_date_tz, days):
     else:
         time_window = 30
 
-    def grouper(df):
-        dummies = df[~df.dummy_row.isnull()]
-        df = df[df.dummy_row.isnull()].copy()
+    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date_tz = UTC.localize(start_date)
 
-        df = df.sort_values("date").reset_index(drop=True)
-        df.loc[df.value == '1', 'start'] = df.date
-        df.loc[df.value == '0', 'end'] = df.date
-        df[['end']] = df[['end']].fillna(method='bfill')
-        df[['start']] = df[['start']].fillna(method='ffill')
+    # Create start and end times
+    df = df.sort_values(["id", "date"]).reset_index(drop=True)
+    df.loc[df.value == '1', 'start'] = df.date
+    df.loc[df.value == '0', 'end'] = df.date
 
-        df.loc[df.start.isnull(), 'start'] = start_date_tz
-        df.loc[df.end.isnull(), 'end'] = start_date_tz + timedelta(days=days)
+    # Fill first and last of each sensor with the start and end of dataframe
+    df.loc[(df.start.isnull()) & (df.id != df.id.shift(1)), 'start'] = start_date_tz
+    df.loc[(df.end.isnull()) & (df.id != df.id.shift(-1)), 'end'] = start_date_tz + timedelta(days=days)
 
-        df['delta'] = df['start'] + timedelta(minutes=time_window)
-        df['delta_prev'] = df.delta.shift(1)
-        df.loc[df.delta_prev.isnull(), 'delta_prev'] = df.delta
+    df[['end']] = df[['end']].fillna(method='bfill')
+    df[['start']] = df[['start']].fillna(method='ffill')
 
-        df.loc[(df.start <= df.delta_prev), 'delta'] = df.delta_prev
+    # Set minimum length
+    df['delta'] = df['start'] + timedelta(minutes=time_window)
+    df['delta_prev'] = df.delta.shift(1)
+    next_sensor = df.id != df.id.shift(1)
+    df.loc[next_sensor, 'delta'] = df.end
+    df.loc[next_sensor, 'delta_prev'] = df.start - timedelta(seconds=1)
 
-        df['end'] = df[['end', 'delta']].max(axis=1)
-        df['prev_end'] = df.end.shift(1)
-        df.loc[df.prev_end.isnull(), 'prev_end'] = start_date_tz
-        df['group_id'] = df.index
-        df.loc[df.start <= df.prev_end, 'group_id'] = np.nan
-        df['group_id'] = df['group_id'].fillna(method='ffill')
+    # Group them
+    df['group_id'] = df.index
+    df.loc[df.start <= df.delta_prev, 'group_id'] = np.nan
+    df['group_id'] = df['group_id'].fillna(method='ffill')
 
-        df = df.groupby('group_id').agg({
-            'name': 'first',
-            'start': min,
-            'end': max,
-            'sort_order': 'first'
-        }).reset_index()
-        df = pd.concat([dummies, df])
-
-        df = df[["name", "start", "end", "sort_order"]]
-        df.columns = ["Task","Start","Finish","Sort"]
-
-        return df
-    return grouper
-
-
-def value_gantt(type, days=None):
-    df = get_data(type, days=days)
+    # And merge
+    df = df.groupby('group_id').agg({'name': 'first', 'start': min, 'end':max, 'sort_order': 'first'}).reset_index()
 
     # Make sure we show all sensors even if no data
     sensors = get_sensors(type)
     sensors = pd.DataFrame(sensors)
-    sensors['dummy_row'] = True
-    start_date = datetime.utcnow() - timedelta(days=days)
-    start_date = timezone('UTC').localize(start_date)
-    start_date = start_date.astimezone(__TIMEZONE)
-    sensors['date'] = start_date
-    sensors['value'] = '1'
-    df = pd.concat([df, sensors])
-    sensors['date'] = start_date + timedelta(seconds=0.1)
-    sensors['value'] = '0'
+    sensors['start'] = start_date_tz
+    sensors['end'] = start_date_tz + timedelta(seconds=0.1)
+
     df = pd.concat([df, sensors])
 
-    df = df.groupby("id").apply(_gantt_grouper(start_date, days)).reset_index()
-    del df["level_1"]
+    df = df[["name", "start", "end", "sort_order"]]
+    df.columns = ["Task", "Start", "Finish", "Sort"]
 
     df = df.sort_values(by=["Sort", "Start","Task"])
-
-    if df.shape[0] == 0:
-        return {}
 
     fig = ff.create_gantt(df, group_tasks=True, index_col='Task')
     fig.layout.xaxis.range = (datetime.now() - timedelta(days=days), datetime.now())
