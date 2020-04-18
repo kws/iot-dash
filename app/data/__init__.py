@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 import plotly.figure_factory as ff
 
@@ -22,6 +22,10 @@ def get_data(type, days=None):
             "  left join sensors as s on l.id = s.id "
             "  where l.date>=? and l.type=? order by l.date",
             conn, params=[start, type])
+
+    df['date'] = pd.to_datetime(df.date)
+    df['date'] = df['date'].dt.tz_localize(timezone.utc)
+    df['date'] = df['date'].dt.tz_convert('Europe/London')
 
     return df
 
