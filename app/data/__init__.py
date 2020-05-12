@@ -22,7 +22,8 @@ def get_data(type, days=None):
 
     with sqlite3.connect(_DB_URL) as conn:
         df = pd.read_sql_query(
-            "select l.date,l.id,s.name,l.type,l.value,s.sort_order from log as l"
+            "select l.date,l.id,s.name,"
+            "  l.type,l.value,s.sort_order from log as l"
             "  left join sensors as s on l.id = s.id "
             "  where l.date>=? and l.type=? order by l.date",
             conn, params=[start, type])
@@ -30,7 +31,8 @@ def get_data(type, days=None):
     df['date'] = pd.to_datetime(df.date)
     df['date'] = df['date'].dt.tz_localize(timezone('UTC'))
     df['date'] = df['date'].dt.tz_convert(__TIMEZONE)
-
+    df.loc[df.name.isna(), 'name'] = df.id.apply(lambda x: f'Sensor {x}')
+    df.loc[df.sort_order.isna(), 'sort_order'] = "zzz"
     return df
 
 
